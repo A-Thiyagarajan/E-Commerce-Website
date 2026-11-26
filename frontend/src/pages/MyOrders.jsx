@@ -1,0 +1,37 @@
+import{useCallback,useEffect,useState}from'react';
+import{Link,useSearchParams}from'react-router-dom';
+import{PackageCheck,MapPin,CreditCard,Truck,CheckCircle2,Clock3,RefreshCw}from'lucide-react';
+import api,{errorText}from'../services/api';
+import{payWithRazorpay}from'../services/payments';
+import ProductImage from'../components/ProductImage';
+
+const steps=[['Order placed',PackageCheck],['Processing',Clock3],['Shipped',Truck],['Delivered',CheckCircle2]];
+const statusIndex={Pending:0,Processing:1,Shipped:2,Delivered:3};
+const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
+export default function MyOrders(){
+  const[orders,setOrders]=useState([]),[error,setError]=useState(''),[payError,setPayError]=useState(''),[params]=useSearchParams(),[paymentEnabled,setPaymentEnabled]=useState(false),[paying,setPaying]=useState(''),[loading,setLoading]=useState(false);
+  const load=useCallback(async()=>{setLoading(true);setError('');try{const{data}=await api.get('/orders/mine');setOrders(data.orders||[])}catch(e){setError(errorText(e))}finally{setLoading(false)}},[]);
+  useEffect(()=>{load();api.get('/payments/config').then(r=>setPaymentEnabled(r.data.enabled)).catch(()=>{})},[load]);
+  const pay=async order=>{setPaying(order._id);setPayError('');try{await payWithRazorpay({payload:{orderId:order._id},prefill:{name:order.shipping.name,email:order.shipping.email,phone:order.shipping.phone},description:`Payment for ShopStack order ${order._id.slice(-8)}`});await load()}catch(e){setPayError(e.message||errorText(e))}finally{setPaying('')}};
+  const paid=['Paid','Demo paid'];
+  return <main className="shell page-main orders-page">
+    <div className="breadcrumbs"><Link to="/">Home</Link> / My orders</div>
+    {params.get('placed')&&<div className="notice success"><PackageCheck/> {params.get('demo')?'Demo payment successful. No money was charged.':'Order placed successfully. We will keep you updated.'}</div>}
+    <div className="orders-heading"><div><span className="market-kicker">YOUR SHOPSTACK PURCHASES</span><h1>Orders &amp; <em>delivery</em></h1><p>Follow each delivery from confirmation to your door.</p></div><div className="orders-heading-actions"><button type="button" className="orders-refresh" onClick={load} disabled={loading}><RefreshCw size={15} className={loading?'is-spinning':''}/>{loading?'Refreshing...':'Refresh orders'}</button><Link to="/products" className="orders-shop-link">Continue shopping &rarr;</Link></div></div>
+    {error&&<div className="notice error">{error}</div>}{payError&&<div className="notice error">{payError}</div>}
+    {loading&&!orders.length?<div className="empty-state">Loading your orders...</div>:!orders.length&&!error?<div className="empty-state"><PackageCheck/><h2>Your first order is waiting.</h2><p>When you find something you love, its journey will show here.</p><Link to="/products" className="button">Explore the marketplace</Link></div>:<div className="orders-list">{orders.map(order=>{
+      const current=statusIndex[order.status]??0,cancelled=order.status==='Cancelled',isPaid=paid.includes(order.paymentStatus),placedDate=new Date(order.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}),paymentMethod=order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod==='DEMO'?`Demo - ${order.paymentProviderMethod||'payment'}`:order.paymentProviderMethod||'Online payment',itemCount=(order.items||[]).reduce((count,item)=>count+Number(item.quantity||0),0);
+      return <article className="tracking-card" key={order._id}>
+        <div className="tracking-head"><div><span className="tracking-id">ORDER #{order._id.slice(-8).toUpperCase()}</span><small>Placed {placedDate}</small></div><span className={`tracking-status status-${String(order.status).toLowerCase()} ${cancelled?'cancelled':''}`}>{order.status}</span></div>
+        {cancelled?<div className="cancelled-message">This order was cancelled. <Link to="/contact">Contact support</Link> if you need help.</div>:order.status!=='Delivered'&&<div className="delivery-timeline" style={{'--progress':`${current/3*100}%`}}>{steps.map(([title,Icon],index)=>{
+          const complete=index<current||(order.status==='Delivered'&&index===current),active=index===current;
+          return <div className={`delivery-step ${complete?'complete':''} ${active?'current':''}`} key={title}><span className="delivery-step-icon"><Icon size={17}/></span><b>{title}</b></div>
+        })}</div>}
+        <div className="tracking-items">{(order.items||[]).map((item,index)=><div key={`${item.product||item.name}-${index}`}><ProductImage src={item.imageUrl} product={item} alt={item.name}/><span>{item.name}<small>Qty {item.quantity}</small></span><b>{money(item.price*item.quantity)}</b></div>)}</div>
+        <div className="tracking-bottom"><div className="tracking-delivery"><MapPin size={15}/><span><small>Delivering to</small><b>{order.shipping?.name} - {order.shipping?.address}, {order.shipping?.city}, {order.shipping?.state} {order.shipping?.pinCode}</b></span></div><div className="tracking-payment"><CreditCard size={15}/><span>{paymentMethod} - {order.paymentStatus||'Unpaid'}</span>{!isPaid&&!cancelled&&<button disabled={!paymentEnabled||paying===order._id||order.status==='Delivered'} title={order.status==='Delivered'?'Payment is unavailable after delivery':undefined} onClick={()=>pay(order)}>{paying===order._id?'Opening payment...':'Pay now'}</button>}</div><strong>{money(order.total)}</strong></div>
+        <details className="tracking-details"><summary>View order details</summary><div className="tracking-detail-grid"><div><small>Order number</small><b>#{order._id.toUpperCase()}</b></div><div><small>Order date</small><b>{placedDate}</b></div><div><small>Payment method</small><b>{paymentMethod}</b></div><div><small>Payment status</small><b>{order.paymentStatus||'Unpaid'}</b></div><div><small>Items</small><b>{itemCount} {itemCount===1?'item':'items'}</b></div><div><small>Order total</small><b>{money(order.total)}</b></div><div className="tracking-detail-address"><small>Delivery address</small><b>{order.shipping?.name} - {order.shipping?.address}, {order.shipping?.city}, {order.shipping?.state} {order.shipping?.pinCode}</b></div></div></details>
+        {!paymentEnabled&&!isPaid&&!cancelled&&order.status!=='Delivered'&&<div className="payment-setup-hint">Online payments are not enabled. Cash on Delivery orders can be paid online after the store enables payments.</div>}
+      </article>
+    })}</div>}
+  </main>
+}

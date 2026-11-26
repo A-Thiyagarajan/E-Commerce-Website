@@ -1,0 +1,3 @@
+import mongoose from 'mongoose';
+const contactMessageSchema=new mongoose.Schema({user:{type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},name:{type:String,required:true,trim:true,maxlength:100},email:{type:String,required:true,trim:true,lowercase:true},phone:{type:String,trim:true,maxlength:30,default:''},orderNumber:{type:String,trim:true,maxlength:60,default:''},subject:{type:String,required:true,trim:true,maxlength:120},message:{type:String,required:true,trim:true,maxlength:4000},status:{type:String,enum:['New','In progress','Resolved'],default:'New'}},{timestamps:true});
+export default mongoose.model('ContactMessage',contactMessageSchema);
