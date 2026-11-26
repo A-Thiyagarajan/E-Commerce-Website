@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node --require ./dns-fix.cjs server.js",
     "dev": "node --require ./dns-fix.cjs --watch server.js",
-    "seed": "node --require ./dns-fix.cjs seed.js"
+    "seed": "node --require ./dns-fix.cjs seed.js",
+    "clean:products": "node --require ./dns-fix.cjs scripts/cleanProductText.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

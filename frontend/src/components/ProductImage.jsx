@@ -4,12 +4,12 @@ import productImageUrl, { resolveProductImageSource } from '../services/productI
 
 export default function ProductImage({ src, product, alt, loading = 'lazy', className = '' }) {
   const sources = useMemo(() => [...new Set([
-    src,
     product?.imageUrl,
-    product?.image,
     product?.product?.imageUrl,
+    src,
+    productImageUrl(product || {}),
+    product?.image,
     product?.product?.image,
-    productImageUrl(product || {})
   ].map(resolveProductImageSource).filter(Boolean))], [src, product]);
   const sourceKey = sources.join('\u0000');
   const [sourceIndex, setSourceIndex] = useState(0);

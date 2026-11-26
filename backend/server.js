@@ -6,6 +6,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { connectDB } from './config/db.js';
 
@@ -17,6 +20,13 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 
 const app = express();
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const productImageRoots = [
+  process.env.PRODUCT_IMAGES_DIR && resolve(process.env.PRODUCT_IMAGES_DIR),
+  resolve(repositoryRoot, 'frontend/public/product-images'),
+  resolve(repositoryRoot, 'images')
+].filter(Boolean);
+const productImagesDirectory = productImageRoots.find(path => existsSync(path));
 
 // ==========================================
 // CORS CONFIGURATION
@@ -32,7 +42,9 @@ const allowedOrigins = [
     .filter(Boolean)
 ];
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 app.use(
   cors({
@@ -119,6 +131,16 @@ app.use(
 );
 
 app.use('/api/admin', adminRoutes);
+
+if (productImagesDirectory) {
+  app.use('/product-images', express.static(productImagesDirectory, {
+    dotfiles: 'deny',
+    maxAge: '7d',
+    immutable: true
+  }));
+} else {
+  console.warn('Product image directory not found; /product-images will return 404.');
+}
 
 // ==========================================
 // 404 HANDLER

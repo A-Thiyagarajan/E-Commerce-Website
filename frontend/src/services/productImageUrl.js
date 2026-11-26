@@ -17,7 +17,7 @@ const categoryFolders = {
 const normalize = value => String(value || '').split('\t')[0].trim().toLowerCase().replace(/inches/g, 'inch').replace(/[^a-z0-9]/g, '');
 
 const backendOrigin = () => {
-  const base = api.defaults.baseURL || 'http://localhost:5000/api';
+  const base = api.defaults.baseURL || '/api';
   const appOrigin = globalThis.location?.origin || 'http://localhost:5173';
   return new URL(base, appOrigin).origin;
 };
@@ -27,12 +27,7 @@ export function resolveProductImageSource(value) {
   if (!source) return '';
   if (/^(?:https?:|data:|blob:|\/\/)/i.test(source)) return source;
   const path = source.replace(/\\/g, '/').replace(/^\.\//, '');
-  if (/^\/?(?:uploads?|storage|files|media)\//i.test(path)) {
-    return new URL(`/${path.replace(/^\/+/, '')}`, backendOrigin()).href;
-  }
-  if (/^product-images\//i.test(path)) return `/${path}`;
-  if (path.startsWith('/')) return path;
-  return `/${path}`;
+  return new URL(`/${path.replace(/^\/+/, '')}`, backendOrigin()).href;
 }
 
 export default function productImageUrl(product = {}) {

@@ -31,6 +31,8 @@ Install Node.js 20.19 or newer and create a MongoDB Atlas database user and clus
 
 The seed script inserts or refreshes 275 products across 11 categories (25 per category) and creates or updates the admin account only when a non-placeholder `ADMIN_PASSWORD` is configured. Run it again to refresh products or update the admin password.
 
+To clean legacy trailing `₹` characters from product names and descriptions without changing any other product fields, run `npm run clean:products` in `backend`.
+
 5. In a second terminal, configure and run the frontend:
 
    ```sh
@@ -78,7 +80,7 @@ Checkout supports Cash on Delivery. In local development, `PAYMENT_DEMO_MODE=tru
 
 ## Validation and deployment
 
-Run `npm run build` in `frontend` to validate and produce the static client in `frontend/dist`. Run `npm start` in `backend` for the API. Configure the hosting provider with the backend variables, set `CLIENT_URL` to the deployed frontend origin, and set `VITE_API_URL` to the deployed API URL before building the frontend. Deploy the frontend as a static site and the backend as a Node service. Use HTTPS, a long random JWT secret, a restricted Atlas network policy, and production-specific origins. Product image fields accept image URLs; image upload storage is not included.
+Run `npm run build` in `frontend` to produce the static client in `frontend/dist`. Run `npm start` in `backend` for the API. Express serves `/product-images/*` from `frontend/public/product-images` (or the repository `images` folder as a fallback). Configure the hosting provider with the backend variables and set `CLIENT_URL` to the deployed frontend origin. The frontend defaults to the ShopStack Render API in production; set `VITE_API_URL` before building when using a different API. Deploy the frontend as a static site and the backend as a Node service that includes the repository image assets. Use HTTPS, a long random JWT secret, a restricted Atlas network policy, and production-specific origins.
 
 ## Notes
 
