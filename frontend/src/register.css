@@ -1,0 +1,77 @@
+.register-image {
+  isolation: isolate;
+  justify-content: flex-start;
+  padding: clamp(30px, 4vw, 62px);
+  background: #efe9df;
+}
+
+.register-image::after {
+  display: none;
+}
+
+.register-image .register-lifestyle-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 56% center;
+}
+
+.register-image-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 380px;
+  color: #25384a;
+}
+
+.register-image-copy > span {
+  color: #60745e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+
+.register-image-copy h2 {
+  margin: 15px 0 9px;
+  font: 500 clamp(38px, 4vw, 58px)/1.06 var(--serif);
+  letter-spacing: -1.5px;
+}
+
+.register-image-copy p {
+  max-width: 310px;
+  margin: 0;
+  color: #536477;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+@media (max-width: 650px) {
+  .register-image {
+    height: 280px;
+    min-height: 280px;
+    padding: 18px;
+  }
+
+  .register-image-copy {
+    max-width: 290px;
+    padding: 13px 15px;
+    border: 1px solid #ffffffb8;
+    border-radius: 10px;
+    background: #fffefaeb;
+    backdrop-filter: blur(6px);
+  }
+
+  .register-image-copy > span {
+    font-size: 9px;
+  }
+
+  .register-image-copy h2 {
+    margin: 7px 0 4px;
+    font-size: 28px;
+  }
+
+  .register-image-copy p {
+    font-size: 12px;
+  }
+}
