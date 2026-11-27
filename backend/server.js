@@ -33,24 +33,37 @@ const normalizeOrigin = (url) =>
 
 const allowedOrigins = new Set([
   'http://localhost:5173',
+
+  // Current ShopStack production domain
+  'https://shopstack-ecommerce.vercel.app',
+
+  // Previous Vercel domains
   'https://e-commerce-website-one-chi-35.vercel.app',
   'https://e-commerce-website-git-main-thiyagarajans-projects-914d713b.vercel.app',
   'https://e-commerce-website-1dm3itqrk-thiyagarajans-projects-914d713b.vercel.app',
 
+  // Additional domains from Render environment variable
   ...(process.env.CLIENT_URL || '')
     .split(',')
     .map(normalizeOrigin)
     .filter(Boolean)
 ]);
 
+console.log(
+  '[CORS] Allowed origins:',
+  [...allowedOrigins]
+);
+
 const corsOptions = {
   origin: (origin, callback) => {
-    const normalizedOrigin = origin
-      ? normalizeOrigin(origin)
-      : null;
+    // Requests without an Origin header are allowed
+    if (!origin) {
+      return callback(null, true);
+    }
 
-    // Allow requests without an Origin header
-    if (!origin || allowedOrigins.has(normalizedOrigin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (allowedOrigins.has(normalizedOrigin)) {
       return callback(null, true);
     }
 
@@ -74,9 +87,12 @@ const corsOptions = {
   allowedHeaders: [
     'Content-Type',
     'Authorization'
-  ]
+  ],
+
+  optionsSuccessStatus: 204
 };
 
+// CORS must run before API routes
 app.use(cors(corsOptions));
 
 // ========================================
@@ -226,7 +242,9 @@ const startServer = async () => {
     console.log('MongoDB connected successfully');
 
     app.listen(PORT, () => {
-      console.log(`ShopStack server running on port ${PORT}`);
+      console.log(
+        `ShopStack server running on port ${PORT}`
+      );
     });
 
   } catch (error) {
