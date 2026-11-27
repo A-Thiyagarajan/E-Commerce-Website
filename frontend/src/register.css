@@ -48,30 +48,48 @@
 
 @media (max-width: 650px) {
   .register-image {
-    height: 280px;
-    min-height: 280px;
-    padding: 18px;
+    height: clamp(190px, 52vw, 250px);
+    min-height: 0;
+    padding: 0;
+    border-radius: 0 0 14px 14px;
+  }
+
+  .register-image::after {
+    display: block;
+    inset: 35% 0 0;
+    background: linear-gradient(transparent, rgba(20, 34, 48, .68));
+    z-index: 0;
+  }
+
+  .register-image .register-lifestyle-photo {
+    object-position: 58% center;
   }
 
   .register-image-copy {
-    max-width: 290px;
-    padding: 13px 15px;
-    border: 1px solid #ffffffb8;
-    border-radius: 10px;
-    background: #fffefaeb;
-    backdrop-filter: blur(6px);
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 16px;
+    max-width: 420px;
+    padding: 0;
+    color: #fff;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, .24);
   }
 
   .register-image-copy > span {
     font-size: 9px;
+    color: #f1f5e9;
   }
 
   .register-image-copy h2 {
     margin: 7px 0 4px;
-    font-size: 28px;
+    font-size: clamp(25px, 7vw, 32px);
   }
 
   .register-image-copy p {
+    max-width: 310px;
+    color: #f2f4f5;
     font-size: 12px;
+    line-height: 1.45;
   }
 }
