@@ -37,9 +37,7 @@ const corsOptions = {
     console.error('[CORS] Blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
-
   credentials: true,
-
   methods: [
     'GET',
     'HEAD',
@@ -49,7 +47,6 @@ const corsOptions = {
     'DELETE',
     'OPTIONS'
   ],
-
   allowedHeaders: [
     'Content-Type',
     'Authorization'
@@ -87,9 +84,6 @@ app.use(
 // 4. STATIC PRODUCT IMAGES
 // ========================================
 
-// Folder location:
-// backend/product-images/
-
 const productImagesDirectory = path.join(
   __dirname,
   'product-images'
@@ -100,13 +94,10 @@ app.use(
   express.static(productImagesDirectory)
 );
 
-console.log(
-  'Product images directory:',
-  productImagesDirectory
-);
+console.log('Product images directory:', productImagesDirectory);
 
 // ========================================
-// 5. IMPORT API ROUTES
+// 5. IMPORT ROUTES
 // ========================================
 
 const authRoutes = require('./routes/authRoutes');
@@ -124,12 +115,10 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'ShopStack backend is running',
-
     database:
       mongoose.connection.readyState === 1
         ? 'Connected'
         : 'Disconnected',
-
     timestamp: new Date().toISOString()
   });
 });
@@ -139,15 +128,10 @@ app.get('/api/health', (req, res) => {
 // ========================================
 
 app.use('/api/auth', authRoutes);
-
 app.use('/api/products', productRoutes);
-
 app.use('/api/orders', orderRoutes);
-
 app.use('/api/payments', paymentRoutes);
-
 app.use('/api/contact', contactRoutes);
-
 app.use('/api/admin', adminRoutes);
 
 // ========================================
@@ -188,11 +172,8 @@ app.use((err, req, res, next) => {
     });
   }
 
-  const statusCode = err.status || 500;
-
-  res.status(statusCode).json({
+  res.status(err.status || 500).json({
     success: false,
-
     message:
       process.env.NODE_ENV === 'production'
         ? 'Internal server error'
@@ -201,7 +182,7 @@ app.use((err, req, res, next) => {
 });
 
 // ========================================
-// 10. MONGODB CONNECTION
+// 10. MONGODB CONNECTION AND SERVER START
 // ========================================
 
 const PORT = process.env.PORT || 5000;
@@ -209,9 +190,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     if (!process.env.MONGO_URI) {
-      throw new Error(
-        'MONGO_URI is missing from environment variables'
-      );
+      throw new Error('MONGO_URI is missing from environment variables');
     }
 
     await mongoose.connect(process.env.MONGO_URI);
@@ -220,7 +199,6 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`ShopStack server running on port ${PORT}`);
-      console.log(`Server port: ${PORT}`);
     });
 
   } catch (error) {
