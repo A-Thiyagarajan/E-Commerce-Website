@@ -1,89 +1,149 @@
 # ShopStack
 
-ShopStack is a full stack storefront for everyday essentials, with a React and Vite client, an Express REST API, and MongoDB persistence. It includes customer registration and login, product search and category filters, a persistent cart, server-priced checkout, order history, and a role-protected admin area.
+ShopStack is a full-stack online store built with React, Express, and MongoDB. Customers can browse and search products, manage a cart, check out, and follow their orders. Admins can manage products and orders.
 
-## Stack and layout
+**Live store:** [shopstack-ecommerce.vercel.app](https://shopstack-ecommerce.vercel.app/)  
+**API health:** [ecommerce-backend-sicp.onrender.com/api/health](https://ecommerce-backend-sicp.onrender.com/api/health)
 
-- Frontend: React, Vite, React Router, Axios, Context API, Lucide React
-- Backend: Node.js, Express, Mongoose, JWT, bcryptjs
-- Database: MongoDB Atlas, database name `shopstack`
+## Features
 
-```text
-backend/   Express API, MongoDB models, seed script
-frontend/  React storefront and admin UI
+- Product browsing, search, categories, sorting, and product details
+- Customer registration, login, profile, and saved delivery details
+- Persistent shopping cart and checkout with Cash on Delivery
+- Optional Razorpay checkout; demo payment mode is simulated and does not charge money
+- Order history and order status updates
+- Admin dashboard and product, order, and contact message management
+- Product images served by the backend
+
+## How it works
+
+```mermaid
+flowchart LR
+    Customer[Customer or Admin] --> Web[React + Vite storefront]
+    Web -->|HTTPS /api requests| API[Express API on Render]
+    Web -->|Static site| Hosting[Vercel]
+    API --> Auth[JWT authentication]
+    API --> DB[(MongoDB Atlas)]
+    API --> Images[Product image files]
+    API --> Pay[Razorpay or Cash on Delivery]
+    DB --> Records[Users, products, orders]
 ```
 
-## Setup
+Typical shopping flow:
 
-Install Node.js 20.19 or newer and create a MongoDB Atlas database user and cluster. In Atlas, allow connections from the development machine's IP address and grant the user read/write access to `shopstack`.
+```mermaid
+flowchart LR
+    Browse[Browse products] --> Cart[Add to cart]
+    Cart --> Checkout[Enter delivery details]
+    Checkout --> Payment{Choose payment}
+    Payment -->|Cash on Delivery| Order[Create order]
+    Payment -->|Online| Verify[Backend verifies payment]
+    Verify --> Order
+    Order --> History[View order history]
+```
 
-1. Copy `backend/.env.example` to `backend/.env`.
-2. Set `MONGO_URI`, `JWT_SECRET`, `ADMIN_NAME`, `ADMIN_EMAIL`, and a strong `ADMIN_PASSWORD` in `backend/.env`. For `MONGO_URI`, use the Atlas connection string supplied in your project brief, with `/shopstack` as the database name. Replace `<db_password>` with your Atlas database user's password. URL encode special characters in the password (for example `@` becomes `%40`). Never commit `.env` or put database credentials in frontend files.
-3. Set `CLIENT_URL=http://localhost:5173`.
-4. Install and seed the backend:
+## Project structure
+
+```text
+E-Commerce-Website/
+|-- backend/
+|   |-- config/         # Database connection
+|   |-- controllers/    # API request handlers
+|   |-- middleware/     # Authentication and access control
+|   |-- models/         # User, product, order, and contact models
+|   |-- routes/         # Express API routes
+|   |-- scripts/        # Maintenance scripts
+|   |-- utils/          # Shared backend helpers
+|   |-- server.js       # Express app and route mounts
+|   `-- seed.js         # Optional product/admin seed command
+|-- frontend/
+|   |-- public/         # Static files and public assets
+|   `-- src/
+|       |-- assets/     # Frontend assets
+|       |-- components/ # Shared UI components
+|       |-- context/    # Authentication and cart state
+|       |-- pages/      # Store, account, checkout, and admin pages
+|       `-- services/   # API, payments, product, and image helpers
+|-- images/             # Product images served by the backend
+`-- README.md
+```
+
+## Run locally
+
+Requirements: Node.js 20.19 or newer, npm, and a MongoDB Atlas database (or another MongoDB deployment that supports transactions).
+
+1. Configure the backend:
 
    ```sh
    cd backend
+   cp .env.example .env
+   ```
+
+   Set `MONGO_URI` and a long random `JWT_SECRET` in `backend/.env`. Set `CLIENT_URL=http://localhost:5173`. To create or update the admin account with the seed command, set a non-placeholder `ADMIN_PASSWORD` first.
+
+2. Install dependencies and start the API in the `backend` directory:
+
+   ```sh
    npm install
-   npm run seed
    npm run dev
    ```
 
-The seed script inserts or refreshes 275 products across 11 categories (25 per category) and creates or updates the admin account only when a non-placeholder `ADMIN_PASSWORD` is configured. Run it again to refresh products or update the admin password.
-
-To clean legacy trailing `₹` characters from product names and descriptions without changing any other product fields, run `npm run clean:products` in `backend`.
-
-5. In a second terminal, configure and run the frontend:
+3. In a second terminal, install and start the frontend:
 
    ```sh
    cd frontend
-   # Copy .env.example to .env only if you need to override the API or proxy target
    npm install
    npm run dev
    ```
 
-Open the Vite URL shown in the terminal. In development, Vite proxies `/api` to `http://127.0.0.1:5000`, so the browser can use the same host you used to open the site. Set `VITE_PROXY_TARGET` if the API runs elsewhere. MongoDB Atlas must be reachable for the API and seed command to start. MongoDB transactions require an Atlas replica set, as provided by Atlas clusters.
+   Open the local Vite URL shown in the terminal. Vite proxies `/api` to `http://127.0.0.1:5000` by default. Set `VITE_PROXY_TARGET` in `frontend/.env` to use a different local API host.
 
-## Configuration
+The frontend defaults to the production API when built. To point it at another backend, set `VITE_API_URL` to either the backend origin or its `/api` URL before building.
 
-Backend variables are documented in `backend/.env.example`: `PORT`, `MONGO_URI`, `JWT_SECRET`, `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CLIENT_URL`, optional `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`, and `PAYMENT_DEMO_MODE`.
+## API overview
 
-## API
+All API routes use the `/api` prefix. Protected routes accept `Authorization: Bearer <token>`.
 
-All responses are JSON. Authenticated routes accept `Authorization: Bearer <token>`.
-
-| Method | Endpoint | Access | Purpose |
+| Method | Route | Access | Description |
 | --- | --- | --- | --- |
 | POST | `/api/auth/register` | Public | Register a customer |
 | POST | `/api/auth/login` | Public | Sign in |
-| GET | `/api/auth/profile` | Signed in | Current profile |
-| PUT | `/api/auth/profile` | Signed in | Update profile and saved delivery address |
-| GET | `/api/products?search=&category=&sort=` | Public | Browse products; sort is `price-asc` or `price-desc` |
+| GET, PUT | `/api/auth/profile` | Signed in | Read or update profile |
+| GET | `/api/products` | Public | List and search products |
 | GET | `/api/products/:id` | Public | Product details |
-| POST, PUT, DELETE | `/api/products[/:id]` | Admin | Product management |
-| POST | `/api/orders` | Signed in | Place a COD order; server validates prices and stock |
-| GET | `/api/orders/mine` | Signed in | Own order history |
-| GET | `/api/orders/:id` | Owner or admin | Order details |
-| GET | `/api/admin/dashboard` | Admin | Store statistics |
-| GET | `/api/admin/users` | Admin | Customer list |
-| GET | `/api/admin/orders` | Admin | All orders |
+| POST, PUT, DELETE | `/api/products[/:id]` | Admin | Create, update, or delete products |
+| POST | `/api/orders` | Signed in | Place a Cash on Delivery order |
+| GET | `/api/orders/mine` | Signed in | View your orders |
+| GET | `/api/orders/:id` | Owner or admin | View order details |
+| GET | `/api/admin/dashboard` | Admin | Dashboard statistics |
+| GET | `/api/admin/users` | Admin | List customers |
+| GET | `/api/admin/orders` | Admin | List orders |
 | PATCH | `/api/admin/orders/:id/status` | Admin | Update order status |
-| GET | `/api/admin/contact` | Admin | View customer contact requests |
-| PATCH | `/api/admin/contact/:id/status` | Admin | Update a contact request |
-| POST | `/api/contact` | Public or signed in | Send a customer support request |
-| GET | `/api/payments/config` | Public | Check if online checkout is enabled |
-| POST | `/api/payments/order` | Signed in | Create a Razorpay checkout session |
-| POST | `/api/payments/verify` | Signed in | Verify payment and create or settle an order |
-| GET | `/api/health` | Public | API health check |
+| GET, PATCH | `/api/admin/contact[/:id/status]` | Admin | View or update contact requests |
+| POST | `/api/contact` | Public or signed in | Send a support request |
+| GET | `/api/payments/config` | Public | Check online payment configuration |
+| POST | `/api/payments/order` | Signed in | Create a payment session |
+| POST | `/api/payments/verify` | Signed in | Verify payment |
+| GET | `/api/health` | Public | Check API availability |
 
-Checkout supports Cash on Delivery. In local development, `PAYMENT_DEMO_MODE=true` enables a clearly labeled simulation for UPI apps, cards, net banking, and wallets; it records a demo result, charges no money, and does not reduce inventory. Demo mode is disabled when `NODE_ENV=production`. For real online payment, create a Razorpay account, add its API key ID and secret to `backend/.env`, and enable the payment methods available to your account. Razorpay Checkout can present UPI, cards, net banking, and wallets enabled for that merchant. The backend calculates the amount, verifies the gateway signature, and only then records a real payment and reduces stock. Never put the Razorpay secret in the frontend.
+## Configuration and deployment
 
-## Validation and deployment
+Backend settings are listed in [`backend/.env.example`](backend/.env.example). Keep `.env` files and payment secrets out of source control. Configure `CLIENT_URL` with the deployed frontend origin so the API CORS policy accepts it.
 
-Run `npm run build` in `frontend` to produce the static client in `frontend/dist`. Run `npm start` in `backend` for the API. Express serves `/product-images/*` from `frontend/public/product-images` (or the repository `images` folder as a fallback). Configure the hosting provider with the backend variables and set `CLIENT_URL` to the deployed frontend origin. The frontend defaults to the ShopStack Render API in production; set `VITE_API_URL` before building when using a different API. Deploy the frontend as a static site and the backend as a Node service that includes the repository image assets. Use HTTPS, a long random JWT secret, a restricted Atlas network policy, and production-specific origins.
+The frontend is deployed on Vercel and the Express API on Render. MongoDB Atlas stores application records. The backend serves `/product-images/*` from `frontend/public/product-images` or the repository's `images/` directory. MongoDB transactions are used for order and inventory updates, so use a replica set such as MongoDB Atlas.
 
-## Notes
+Build the frontend for production from the `frontend` directory:
 
-- Cart contents are stored in browser local storage. Auth uses a bearer token in local storage; deploy behind HTTPS and protect devices appropriately.
-- Checkout uses a MongoDB session transaction so stock changes roll back if order creation fails. Atlas supports transactions; a standalone local MongoDB server does not.
-- Admin authorization is enforced by backend middleware. There is no public admin signup route.
+```sh
+npm run build
+```
+
+Start the backend in production from `backend` with `npm start`.
+
+## Data and security notes
+
+- The seed command is optional. It refreshes the included product catalog and can create/update the admin account when configured; do not run it against a production database unless that is intended.
+- Passwords are hashed, and JWTs protect signed-in and admin API routes.
+- Product prices and stock are checked by the backend when orders are placed.
+- Demo payment mode is for development demonstrations only. It does not move money; production payment verification uses the configured gateway.
+- Never commit database credentials, JWT secrets, or payment secrets.
