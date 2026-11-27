@@ -1,16 +1,35 @@
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const helmet = require('helmet');
-const path = require('path');
-require('dotenv').config();
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import helmet from 'helmet';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import 'dotenv/config';
+
+// Import API routes
+import authRoutes from './routes/authRoutes.js';
+import productRoutes from './routes/productRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import contactRoutes from './routes/contactRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+
+// ========================================
+// 1. DIRECTORY CONFIGURATION
+// ========================================
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 // ========================================
-// 1. CORS CONFIGURATION
+// 2. CORS CONFIGURATION
 // ========================================
+
+const normalizeOrigin = (url) =>
+  url.trim().replace(/\/+$/, '');
 
 const allowedOrigins = new Set([
   'http://localhost:5173',
@@ -20,24 +39,28 @@ const allowedOrigins = new Set([
 
   ...(process.env.CLIENT_URL || '')
     .split(',')
-    .map(url => url.trim().replace(/\/+$/, ''))
+    .map(normalizeOrigin)
     .filter(Boolean)
 ]);
 
 const corsOptions = {
   origin: (origin, callback) => {
     const normalizedOrigin = origin
-      ? origin.replace(/\/+$/, '')
+      ? normalizeOrigin(origin)
       : null;
 
+    // Allow requests without an Origin header
     if (!origin || allowedOrigins.has(normalizedOrigin)) {
       return callback(null, true);
     }
 
     console.error('[CORS] Blocked origin:', origin);
+
     return callback(new Error('Not allowed by CORS'));
   },
+
   credentials: true,
+
   methods: [
     'GET',
     'HEAD',
@@ -47,6 +70,7 @@ const corsOptions = {
     'DELETE',
     'OPTIONS'
   ],
+
   allowedHeaders: [
     'Content-Type',
     'Authorization'
@@ -56,7 +80,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // ========================================
-// 2. SECURITY CONFIGURATION
+// 3. SECURITY CONFIGURATION
 // ========================================
 
 app.use(
@@ -68,10 +92,12 @@ app.use(
 );
 
 // ========================================
-// 3. BODY PARSING
+// 4. BODY PARSING
 // ========================================
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb'
+}));
 
 app.use(
   express.urlencoded({
@@ -81,7 +107,7 @@ app.use(
 );
 
 // ========================================
-// 4. STATIC PRODUCT IMAGES
+// 5. STATIC PRODUCT IMAGES
 // ========================================
 
 const productImagesDirectory = path.join(
@@ -94,18 +120,10 @@ app.use(
   express.static(productImagesDirectory)
 );
 
-console.log('Product images directory:', productImagesDirectory);
-
-// ========================================
-// 5. IMPORT ROUTES
-// ========================================
-
-const authRoutes = require('./routes/authRoutes');
-const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
-const contactRoutes = require('./routes/contactRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+console.log(
+  'Product images directory:',
+  productImagesDirectory
+);
 
 // ========================================
 // 6. HEALTH CHECK
@@ -115,10 +133,12 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'ShopStack backend is running',
+
     database:
       mongoose.connection.readyState === 1
         ? 'Connected'
         : 'Disconnected',
+
     timestamp: new Date().toISOString()
   });
 });
@@ -172,7 +192,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  res.status(err.status || 500).json({
+  return res.status(err.status || 500).json({
     success: false,
     message:
       process.env.NODE_ENV === 'production'
@@ -190,7 +210,15 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     if (!process.env.MONGO_URI) {
-      throw new Error('MONGO_URI is missing from environment variables');
+      throw new Error(
+        'MONGO_URI is missing from environment variables'
+      );
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error(
+        'JWT_SECRET is missing from environment variables'
+      );
     }
 
     await mongoose.connect(process.env.MONGO_URI);
