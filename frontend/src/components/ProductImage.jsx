@@ -6,10 +6,10 @@ export default function ProductImage({ src, product, alt, loading = 'lazy', clas
   const sources = useMemo(() => [...new Set([
     product?.imageUrl,
     product?.product?.imageUrl,
-    src,
-    productImageUrl(product || {}),
     product?.image,
     product?.product?.image,
+    src,
+    productImageUrl(product || {}),
   ].map(resolveProductImageSource).filter(Boolean))], [src, product]);
   const sourceKey = sources.join('\u0000');
   const [sourceIndex, setSourceIndex] = useState(0);
