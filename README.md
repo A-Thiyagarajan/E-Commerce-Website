@@ -10,7 +10,7 @@ ShopStack is a full-stack online store built with React, Express, and MongoDB. C
 - Product browsing, search, categories, sorting, and product details
 - Customer registration, login, profile, and saved delivery details
 - Persistent shopping cart and checkout with Cash on Delivery
-- Optional Razorpay checkout; demo payment mode is simulated and does not charge money
+- Demo payment mode is simulated and does not charge money
 - Order history and order status updates
 - Admin dashboard and product, order, and contact message management
 - Product images served by the backend
