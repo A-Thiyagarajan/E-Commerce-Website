@@ -17,6 +17,8 @@ const categoryFolders = {
 const normalize = value => String(value || '').split('\t')[0].trim().toLowerCase().replace(/inches/g, 'inch').replace(/[^a-z0-9]/g, '');
 
 export function productImagePath(product = {}) {
+  const explicit = String(product.imageUrl || product.image || '');
+  if (explicit.startsWith('/api/images/')) return explicit;
   const name = String(product.name || '').split('\t')[0].trim();
   const key = normalize(name);
   if (key) {
@@ -33,5 +35,5 @@ export function productImagePath(product = {}) {
       return `/product-images/${folder}/${encodeURIComponent(filename)}`;
     }
   }
-  return String(product.imageUrl || product.image || '');
+  return explicit;
 }

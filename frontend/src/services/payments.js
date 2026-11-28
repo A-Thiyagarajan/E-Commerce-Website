@@ -24,8 +24,7 @@ export async function payWithRazorpay({payload,prefill={},description='ShopStack
         {value:'UPI \u00b7 Paytm',name:'Paytm',detail:'Pay with UPI',icon:'upi',brand:'paytm'},
         {value:'UPI \u00b7 BHIM',name:'BHIM UPI',detail:'Pay directly from your bank',icon:'upi',brand:'bhim'},
         {value:'Credit or debit card',name:'Credit / Debit Card',detail:'Visa, Mastercard and supported cards',icon:'card'},
-        {value:'Net banking',name:'Net Banking',detail:'Pay through your bank',icon:'bank'},
-        {value:'Wallet',name:'Wallets',detail:'Use a supported digital wallet',icon:'wallet'}
+        {value:'Net banking',name:'Net Banking',detail:'Pay through your bank',icon:'bank'}
       ];
       const methodCards=methods.map((method,index)=>`<button type="button" class="checkout-method-card" data-method="${method.value}" aria-pressed="false"><span class="checkout-method-icon ${method.brand||''}">${icons[method.icon]}</span><span class="checkout-method-copy"><strong>${method.name}</strong><small>${method.detail}</small></span><span class="checkout-method-check">${icons.check}</span></button>`).join('');
       dialog.className='demo-payment-dialog premium-checkout-dialog';
@@ -37,7 +36,7 @@ export async function payWithRazorpay({payload,prefill={},description='ShopStack
       let processing=false;
       const close=(result='')=>{if(dialog.open&&!dialog.classList.contains('is-closing')){dialog.classList.add('is-closing');window.setTimeout(()=>{if(dialog.open)dialog.close(result)},160)}};
       const clean=()=>dialog.remove();
-      dialog.addEventListener('close',()=>{const result=dialog.returnValue;clean();if(result==='success')resolve(confirmedOrder);else reject(new Error('Payment cancelled. You can try again.'))},{once:true});
+      dialog.addEventListener('close',()=>{const result=dialog.returnValue;clean();if(result==='success')resolve(confirmedOrder);else{api.post('/payments/cancel',{gatewayOrderId:session.gatewayOrderId}).catch(()=>{});reject(new Error('Payment cancelled. You can try again.'))}},{once:true});
       dialog.querySelectorAll('.checkout-method-card').forEach(card=>card.addEventListener('click',()=>{
         dialog.querySelector('.checkout-method-card.is-selected')?.classList.remove('is-selected');
         card.classList.add('is-selected');
@@ -59,7 +58,7 @@ export async function payWithRazorpay({payload,prefill={},description='ShopStack
         button.disabled=true;button.classList.add('is-loading');button.querySelector('.checkout-pay-label').textContent='Processing payment...';
         try{
           const {data}=await api.post('/payments/verify',{demoOrderId:session.gatewayOrderId,demoPaymentMethod:selectedMethod});
-          confirmedOrder=data.order;
+          confirmedOrder={...data.order,wallet:data.wallet};
           close('success');
         }catch(error){
           processing=false;button.disabled=false;button.classList.remove('is-loading');button.querySelector('.checkout-pay-label').textContent=`Pay ${money(amount)}`;
@@ -71,7 +70,7 @@ export async function payWithRazorpay({payload,prefill={},description='ShopStack
   }
   if(!await loadRazorpay())throw new Error('Secure payment checkout could not be loaded. Check your connection and try again.');
   return new Promise((resolve,reject)=>{
-    const checkout=new window.Razorpay({key:session.keyId,amount:session.amount,currency:session.currency,name:'ShopStack',description,order_id:session.gatewayOrderId,prefill:{name:prefill.name||'',email:prefill.email||'',contact:prefill.phone||''},theme:{color:'#2563EB'},handler:async response=>{try{const{data}=await api.post('/payments/verify',response);resolve(data.order)}catch(error){reject(new Error(error.response?.data?.message||'Payment verification failed. Contact support before retrying.'))}},modal:{ondismiss:()=>reject(new Error('Payment was not completed. You can try again from your orders.'))}});
-    checkout.on('payment.failed',event=>reject(new Error(event.error?.description||'Payment failed. Please try again.')));checkout.open();
+    const checkout=new window.Razorpay({key:session.keyId,amount:session.amount,currency:session.currency,name:'ShopStack',description,order_id:session.gatewayOrderId,prefill:{name:prefill.name||'',email:prefill.email||'',contact:prefill.phone||''},theme:{color:'#2563EB'},handler:async response=>{try{const{data}=await api.post('/payments/verify',response);resolve({...data.order,wallet:data.wallet})}catch(error){reject(new Error(error.response?.data?.message||'Payment verification failed. Contact support before retrying.'))}},modal:{ondismiss:()=>{api.post('/payments/cancel',{gatewayOrderId:session.gatewayOrderId}).catch(()=>{});reject(new Error('Payment was not completed. You can try again from your orders.'))}}});
+    checkout.on('payment.failed',event=>{api.post('/payments/cancel',{gatewayOrderId:session.gatewayOrderId}).catch(()=>{});reject(new Error(event.error?.description||'Payment failed. Please try again.'))});checkout.open();
   });
 }

@@ -74,7 +74,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['customer', 'admin'],
       default: 'customer'
-    }
+    },
+    walletBalance: { type: Number, min: 0, default: 0 },
+    walletReserved: { type: Number, min: 0, default: 0 },
+    bankAccount: { accountHolder: { type: String, default: '' }, accountNumber: { type: String, default: '' }, ifsc: { type: String, default: '' } },
+    bankAccounts: [{ accountHolder: { type: String, required: true }, accountNumber: { type: String, required: true }, ifsc: { type: String, required: true } }]
   },
   {
     timestamps: true

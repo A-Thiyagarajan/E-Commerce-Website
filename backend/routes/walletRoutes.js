@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { wallet, saveBankAccount, addBankAccount, updateBankAccount, deleteBankAccount, requestWithdrawal } from '../controllers/walletController.js';
+import { protect } from '../middleware/authMiddleware.js';
+const router = Router();
+router.use(protect);
+router.get('/', wallet);
+router.post('/bank-accounts', addBankAccount);
+router.patch('/bank-accounts/:id', updateBankAccount);
+router.delete('/bank-accounts/:id', deleteBankAccount);
+router.put('/bank-account', saveBankAccount);
+router.post('/withdrawals', requestWithdrawal);
+export default router;

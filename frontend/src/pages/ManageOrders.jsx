@@ -5,7 +5,7 @@ import api,{errorText}from'../services/api';
 import ProductImage from'../components/ProductImage';
 
 const statuses=['Pending','Processing','Shipped','Delivered','Cancelled'];
-const paymentMethods=[['COD','Cash on Delivery'],['ONLINE','Online payment'],['DEMO','Demo payment']];
+const paymentMethods=[['COD','Cash on Delivery'],['WALLET','Wallet'],['ONLINE','Online payment'],['DEMO','Demo payment']];
 const statusIcons={Pending:Package,Processing:Clock3,Shipped:Truck,Delivered:CheckCircle2,Cancelled:XCircle};
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
 const dateLabel=value=>new Date(value).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
@@ -13,7 +13,7 @@ export default function ManageOrders(){
   const[orders,setOrders]=useState([]),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(false),[updating,setUpdating]=useState('');
   const[query,setQuery]=useState(''),[statusFilter,setStatusFilter]=useState('All'),[paymentFilter,setPaymentFilter]=useState('All'),[fromDate,setFromDate]=useState(''),[toDate,setToDate]=useState(''),[sort,setSort]=useState('newest');
   const load=useCallback(async()=>{setLoading(true);setError('');try{const{data}=await api.get('/admin/orders');setOrders(data.orders||[])}catch(e){setError(errorText(e))}finally{setLoading(false)}},[]);
-  useEffect(()=>{load()},[load]);
+  useEffect(()=>{load();const timer=setInterval(load,5000);return()=>clearInterval(timer)},[load]);
   const counts=useMemo(()=>statuses.reduce((result,status)=>({...result,[status]:orders.filter(order=>order.status===status).length}),{Total:orders.length}),[orders]);
   const visibleOrders=useMemo(()=>{
     const term=query.trim().toLowerCase();
@@ -30,7 +30,7 @@ export default function ManageOrders(){
   },[orders,query,statusFilter,paymentFilter,fromDate,toDate,sort]);
   const change=async(order,status)=>{
     if(status===order.status)return;
-    if(status==='Cancelled'&&!window.confirm(`Cancel order #${order._id.slice(-8).toUpperCase()} for ${order.user?.name||order.shipping?.name||'this customer'}? Stock will be returned and the customer will see this order as cancelled.${order.paymentStatus==='Paid'?' Refund the payment separately through Razorpay.':''}`))return;
+    if(status==='Cancelled'&&!window.confirm(`Cancel order #${order._id.slice(-8).toUpperCase()} for ${order.user?.name||order.shipping?.name||'this customer'}? Stock will be returned and the customer will see this order as cancelled.${['Paid','Demo paid'].includes(order.paymentStatus)||Number(order.walletPaid)>0?' The paid amount will be credited to the customer wallet.':''}`))return;
     setUpdating(order._id);setError('');setNotice('');
     try{await api.patch(`/admin/orders/${order._id}/status`,{status});setNotice(`Order #${order._id.slice(-8).toUpperCase()} updated to ${status}.`);await load()}
     catch(e){setError(errorText(e))}
@@ -49,10 +49,10 @@ export default function ManageOrders(){
       const StatusIcon=statusIcons[order.status]||Package;
       const items=order.items||[];
       return <article className="admin-order-card" key={order._id}>
-        <header className="admin-order-card-head"><div><span className="admin-order-id">ORDER #{order._id.slice(-8).toUpperCase()}</span><small>Placed {dateLabel(order.createdAt)}</small></div><div className="admin-order-head-right"><strong>{money(order.total)}</strong><span className={`admin-order-status status-${order.status.toLowerCase()}`}><StatusIcon size={14}/>{order.status}</span></div></header>
+        <header className="admin-order-card-head"><div><span className="admin-order-id">ORDER #{order._id.slice(-8).toUpperCase()}</span><small>Placed {dateLabel(order.createdAt)}</small></div><div className="admin-order-head-right"><strong>{money(order.total)}</strong><span className={`admin-order-status status-${order.status.toLowerCase()}`}><StatusIcon size={14}/>{order.status==='Cancelled'&&order.cancelledBy==='user'?'Cancelled by user':order.status}</span></div></header>
         <div className="admin-order-card-body"><section className="admin-order-products" aria-label="Order products">{items.map((item,index)=><div className="admin-order-product" key={`${item.product||item.name}-${index}`}><ProductImage src={item.imageUrl} product={item} alt={item.name}/><div><strong>{item.name}</strong><small>Qty {item.quantity} <span>at {money(item.price)} each</span></small></div><b>{money(item.price*item.quantity)}</b></div>)}</section>
-          <aside className="admin-order-customer"><h3>Customer and delivery</h3><p><UserRound size={15}/><strong>{order.user?.name||order.shipping?.name||'Customer'}</strong></p><p><Mail size={15}/><span>{order.user?.email||order.shipping?.email||'No email on file'}</span></p><p><Phone size={15}/><span>{order.shipping?.phone||'No phone on file'}</span></p><p className="admin-order-address"><MapPin size={15}/><span>{[order.shipping?.address,order.shipping?.city,order.shipping?.state,order.shipping?.pinCode].filter(Boolean).join(', ')||'No delivery address on file'}</span></p><p className="admin-order-payment"><CreditCard size={15}/><span><strong>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod==='DEMO'?`Demo - ${order.paymentProviderMethod||'payment'}`:'Online payment'}</strong><small>{order.paymentStatus||'Unpaid'}</small></span></p></aside></div>
-        <footer className="admin-order-card-footer"><span>{items.length} {items.length===1?'product':'products'} / {items.reduce((sum,item)=>sum+(Number(item.quantity)||0),0)} {items.reduce((sum,item)=>sum+(Number(item.quantity)||0),0)===1?'item':'items'}</span><label>Update status<select value={order.status} disabled={updating===order._id} onChange={e=>change(order,e.target.value)} aria-label={`Update status for order ${order._id.slice(-8)}`}>{statuses.map(status=><option key={status}>{status}</option>)}</select>{updating===order._id&&<small>Saving status...</small>}</label></footer>
+          <aside className="admin-order-customer"><h3>Customer and delivery</h3><p><UserRound size={15}/><strong>{order.user?.name||order.shipping?.name||'Customer'}</strong></p><p><Mail size={15}/><span>{order.user?.email||order.shipping?.email||'No email on file'}</span></p><p><Phone size={15}/><span>{order.shipping?.phone||'No phone on file'}</span></p><p className="admin-order-address"><MapPin size={15}/><span>{[order.shipping?.address,order.shipping?.city,order.shipping?.state,order.shipping?.pinCode].filter(Boolean).join(', ')||'No delivery address on file'}</span></p><p className="admin-order-payment"><CreditCard size={15}/><span><strong>{order.paymentMethod==='COD'?'Cash on Delivery':order.paymentMethod==='WALLET'?'Wallet':order.paymentMethod==='DEMO'?`Demo - ${order.paymentProviderMethod||'payment'}`:'Online payment'}</strong><small>{order.paymentStatus||'Unpaid'}</small></span></p></aside></div>
+        <footer className="admin-order-card-footer"><span>{items.length} {items.length===1?'product':'products'} / {items.reduce((sum,item)=>sum+(Number(item.quantity)||0),0)} {items.reduce((sum,item)=>sum+(Number(item.quantity)||0),0)===1?'item':'items'}</span>{order.status==='Cancelled'&&order.cancelledBy==='user'?<span className="admin-order-cancelled-note">Cancelled by customer</span>:<label>Update status<select value={order.status} disabled={updating===order._id} onChange={e=>change(order,e.target.value)} aria-label={`Update status for order ${order._id.slice(-8)}`}>{statuses.map(status=><option key={status}>{status}</option>)}</select>{updating===order._id&&<small>Saving status...</small>}</label>}</footer>
       </article>
     })}</section>}
   </main>

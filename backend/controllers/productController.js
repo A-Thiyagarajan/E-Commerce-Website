@@ -1,6 +1,24 @@
 import Product from '../models/Product.js';
 import { productImagePath } from '../utils/productImages.js';
 import { cleanProductDescription, cleanProductName } from '../utils/productText.js';
+import ProductImage from '../models/ProductImage.js';
+
+export async function uploadProductImage(req, res) {
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body.image || ''));
+  if (!match) return res.status(400).json({ message: 'Choose a JPG, PNG, or WebP image.' });
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length || buffer.length > 5 * 1024 * 1024) return res.status(400).json({ message: 'Product images must be 5 MB or smaller.' });
+  const contentType = `image/${match[1]}`;
+  const saved = await ProductImage.create({ contentType, data: buffer });
+  res.status(201).json({ imageUrl: `/api/images/${saved._id}` });
+}
+
+export async function getProductImage(req, res) {
+  if (!/^[a-f\d]{24}$/i.test(req.params.id)) return res.status(400).end();
+  const image = await ProductImage.findById(req.params.id).select('contentType data');
+  if (!image) return res.status(404).end();
+  res.set('Content-Type', image.contentType).set('Cache-Control', 'public, max-age=31536000, immutable').send(image.data);
+}
 
 const productResponse = product => {
   const value = product.toObject ? product.toObject() : product;

@@ -22,7 +22,11 @@ const publicUser = (user) => ({
   email: user.email,
   role: user.role,
   phone: user.phone || '',
-  address: user.address || {}
+  address: user.address || {},
+  walletBalance: Number(user.walletBalance) || 0,
+  walletReserved: Number(user.walletReserved) || 0,
+  bankAccount: user.bankAccount || {},
+  bankAccounts: user.bankAccounts || []
 });
 
 // Register user

@@ -6,7 +6,10 @@ import Razorpay from 'razorpay';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
 import PaymentIntent from '../models/PaymentIntent.js';
+import User from '../models/User.js';
+import WalletTransaction from '../models/WalletTransaction.js';
 import { productImagePath } from '../utils/productImages.js';
+import { releaseExpiredWalletReservations, releaseWalletReservation } from '../utils/walletReservations.js';
 
 // ========================================
 // 1. PAYMENT CONFIGURATION
@@ -124,17 +127,20 @@ export function paymentConfig(req, res) {
 // ========================================
 
 export async function createPaymentOrder(req, res) {
+  await releaseExpiredWalletReservations(req.user._id);
   if (!configured() && !demoMode()) {
     return res.status(503).json({
       message: 'Online payments are not enabled. Configure payment settings.'
     });
   }
 
-  const { items, shipping, orderId } = req.body;
+  const { items, shipping, orderId, useWallet = false } = req.body;
 
   try {
     let intentData;
     let amount;
+    let orderTotal;
+    let walletAmount = 0;
 
     // Existing order payment
     if (orderId) {
@@ -160,6 +166,7 @@ export async function createPaymentOrder(req, res) {
       }
 
       amount = order.total;
+      orderTotal = order.total;
 
       intentData = {
         order: order._id,
@@ -185,7 +192,7 @@ export async function createPaymentOrder(req, res) {
       }
 
       const snapshot = [];
-      amount = 0;
+      orderTotal = 0;
 
       for (const product of products) {
         const quantity = grouped.get(String(product._id));
@@ -196,7 +203,7 @@ export async function createPaymentOrder(req, res) {
           });
         }
 
-        amount += product.price * quantity;
+        orderTotal += product.price * quantity;
 
         snapshot.push({
           product: product._id,
@@ -212,7 +219,17 @@ export async function createPaymentOrder(req, res) {
         items: snapshot,
         shipping
       };
+
+      if (useWallet === true) {
+        const user = await User.findById(req.user._id).select('walletBalance walletReserved');
+        walletAmount = Math.min(Math.max(0, (user?.walletBalance || 0) - (user?.walletReserved || 0)), orderTotal);
+        if (walletAmount <= 0) return res.status(409).json({ message: 'Your wallet has no available funds. Refresh checkout or continue without wallet funds.' });
+      }
+      amount = Math.max(0, Math.round((orderTotal - walletAmount) * 100) / 100);
+      intentData.walletAmount = walletAmount;
     }
+
+    if (amount <= 0) return res.status(400).json({ message: 'Your wallet covers this order. Place the order using your wallet balance.' });
 
     // Create real Razorpay order or simulated demo order
     const gatewayOrder = configured()
@@ -227,12 +244,22 @@ export async function createPaymentOrder(req, res) {
           currency: 'INR'
         };
 
-    await PaymentIntent.create({
-      user: req.user._id,
-      gatewayOrderId: gatewayOrder.id,
-      amount,
-      ...intentData
-    });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (walletAmount > 0) {
+          const reserved = await User.updateOne({ _id: req.user._id, $expr: { $gte: [{ $subtract: [{ $ifNull: ['$walletBalance', 0] }, { $ifNull: ['$walletReserved', 0] }] }, walletAmount] } }, { $inc: { walletReserved: walletAmount } }, { session });
+          if (reserved.modifiedCount !== 1) throw Object.assign(new Error('Wallet balance changed. Please try again.'), { status: 409 });
+        }
+        await PaymentIntent.create([{
+          user: req.user._id,
+          gatewayOrderId: gatewayOrder.id,
+          amount,
+          orderTotal,
+          ...intentData
+        }], { session });
+      });
+    } finally { await session.endSession(); }
 
     return res.status(201).json({
       gatewayOrderId: gatewayOrder.id,
@@ -298,8 +325,7 @@ export async function verifyPayment(req, res) {
     'UPI · Paytm',
     'UPI · BHIM',
     'Credit or debit card',
-    'Net banking',
-    'Wallet'
+    'Net banking'
   ];
 
   if (
@@ -327,6 +353,11 @@ export async function verifyPayment(req, res) {
       order: await Order.findById(intent.order),
       message: 'Payment already confirmed'
     });
+  }
+
+  if (intent.expiresAt && intent.expiresAt <= new Date()) {
+    await releaseWalletReservation(intent._id, req.user._id, { expiredOnly: true });
+    return res.status(409).json({ message: 'This payment session expired. Start checkout again.' });
   }
 
   // Verify real Razorpay signature
@@ -387,6 +418,15 @@ export async function verifyPayment(req, res) {
         return;
       }
 
+      const orderDemoMethod = demo && demoPaymentMethod === 'Wallet' && !current.walletAmount
+        ? 'External demo wallet'
+        : demoPaymentMethod;
+
+      if (current.walletAmount > 0) {
+        const debit = await User.updateOne({ _id: req.user._id, walletBalance: { $gte: current.walletAmount }, walletReserved: { $gte: current.walletAmount } }, { $inc: { walletBalance: -current.walletAmount, walletReserved: -current.walletAmount } }, { session });
+        if (debit.modifiedCount !== 1) throw Object.assign(new Error('Reserved wallet funds could not be applied. Please contact support.'), { status: 409 });
+      }
+
       if (current.order) {
         // Pay an existing order
         order = await Order.findOneAndUpdate(
@@ -403,8 +443,9 @@ export async function verifyPayment(req, res) {
             paymentStatus: demo ? 'Demo paid' : 'Paid',
             paymentMethod: demo ? 'DEMO' : 'ONLINE',
             paymentGatewayId: paymentId,
+            walletPaid: current.walletAmount || 0,
             paymentProviderMethod: demo
-              ? demoPaymentMethod
+              ? orderDemoMethod
               : 'Razorpay'
           },
           {
@@ -475,10 +516,11 @@ export async function verifyPayment(req, res) {
             paymentMethod: demo ? 'DEMO' : 'ONLINE',
             paymentStatus: demo ? 'Demo paid' : 'Paid',
             paymentGatewayId: paymentId,
+            walletPaid: current.walletAmount || 0,
             paymentProviderMethod: demo
-              ? demoPaymentMethod
+              ? orderDemoMethod
               : 'Razorpay',
-            total: current.amount
+            total: current.orderTotal || current.amount
           }],
           { session }
         );
@@ -486,6 +528,7 @@ export async function verifyPayment(req, res) {
 
       current.status = 'Paid';
       current.gatewayPaymentId = paymentId;
+      if (current.walletAmount > 0) await WalletTransaction.create([{ user: req.user._id, type: 'debit', amount: current.walletAmount, note: `Payment for order #${String(order._id).slice(-8).toUpperCase()}`, order: order._id }], { session });
 
       if (demo) {
         current.paymentProviderMethod = demoPaymentMethod;
@@ -496,12 +539,23 @@ export async function verifyPayment(req, res) {
       await current.save({ session });
     });
 
+    const walletUser = await User.findById(req.user._id).select('walletBalance walletReserved').lean();
     return res.json({
       order,
-      demo
+      demo,
+      wallet: { balance: walletUser?.walletBalance || 0, availableBalance: Math.max(0, (walletUser?.walletBalance || 0) - (walletUser?.walletReserved || 0)), reserved: walletUser?.walletReserved || 0 }
     });
 
   } finally {
     await session.endSession();
   }
+}
+
+export async function cancelPayment(req, res) {
+  const gatewayOrderId = String(req.body.gatewayOrderId || '');
+  if (!gatewayOrderId) return res.status(400).json({ message: 'Payment session is required.' });
+  const intent = await PaymentIntent.findOne({ gatewayOrderId, user: req.user._id }).select('_id status');
+  if (!intent) return res.status(404).json({ message: 'Payment session not found.' });
+  if (intent.status === 'Pending') await releaseWalletReservation(intent._id, req.user._id);
+  res.json({ cancelled: true });
 }

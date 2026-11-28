@@ -4,7 +4,8 @@ import { Router } from 'express';
 import {
   paymentConfig,
   createPaymentOrder,
-  verifyPayment
+  verifyPayment,
+  cancelPayment
 } from '../controllers/paymentController.js';
 
 import { protect } from '../middleware/authMiddleware.js';
@@ -19,5 +20,6 @@ router.post('/order', protect, createPaymentOrder);
 
 // Verify payment
 router.post('/verify', protect, verifyPayment);
+router.post('/cancel', protect, cancelPayment);
 
 export default router;
