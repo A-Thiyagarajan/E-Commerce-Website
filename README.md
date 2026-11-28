@@ -5,6 +5,10 @@ ShopStack is a full-stack online store built with React, Express, and MongoDB. C
 **Live store:** [shopstack-ecommerce.vercel.app](https://shopstack-ecommerce.vercel.app/)  
 **API health:** [ecommerce-backend-sicp.onrender.com/api/health](https://ecommerce-backend-sicp.onrender.com/api/health)
 
+## Try the live store
+
+Visitors can sign in with an existing customer account or select **Create account** on the website to register and try the shopping, order, and wallet features. Admin access is reserved for the site operator; admin credentials are configured privately in the backend environment and are not published here.
+
 ## Features
 
 - Product browsing, search, categories, sorting, and product details
