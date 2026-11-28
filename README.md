@@ -5,9 +5,40 @@ ShopStack is a full-stack online store built with React, Express, and MongoDB. C
 **Live store:** [shopstack-ecommerce.vercel.app](https://shopstack-ecommerce.vercel.app/)  
 **API health:** [ecommerce-backend-sicp.onrender.com/api/health](https://ecommerce-backend-sicp.onrender.com/api/health)
 
-## Try the live store
+## 🔐 Demo Login Credentials
 
-Visitors can sign in with an existing customer account or select **Create account** on the website to register and try the shopping, order, and wallet features. Admin access is reserved for the site operator; admin credentials are configured privately in the backend environment and are not published here.
+Explore the website using the following demo accounts.
+
+### 👨‍💼 Admin Login
+
+| Field | Credentials |
+|---|---|
+| **Email / ID** | admin@example.com |
+| **Password** | admin@2004 |
+| **Role** | Administrator |
+
+### 👤 User Login
+
+| Field | Credentials |
+|---|---|
+| **Email / ID** | abc@gmail.com |
+| **Password** | 12345678 |
+| **Role** | Customer |
+
+## 📝 Create a New Account
+
+If you want to create your own account:
+
+1. Open the website.
+2. Go to the Login page.
+3. Click on **Create Account**.
+4. Enter your name, email, and password.
+5. Complete the registration process.
+6. Log in using your newly created credentials.
+
+---
+
+**Note:** These are demo credentials provided for project evaluation and testing purposes.
 
 ## Features
 
